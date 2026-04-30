@@ -1,6 +1,6 @@
 FROM alpine:3.20
 
-RUN apk --update --no-cache add bash curl wget unzip nginx ca-certificates imagemagick
+RUN apk --update --no-cache add bash curl wget unzip nginx ca-certificates imagemagick librsvg
 
 RUN apk add --no-cache \
     php83 \

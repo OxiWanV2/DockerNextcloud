@@ -42,9 +42,6 @@ if [ "$STATUS" = "downloaded" ]; then
         exit 1
     fi
 
-    echo "[*] Migration des mimetypes..."
-    $PHP "$NC_DIR/occ" maintenance:repair --include-expensive
-
     sed -i 's/STATUS=downloaded/STATUS=configured/' "$DATA_FILE"
     echo "[✓] Nextcloud installé."
 fi
@@ -67,17 +64,22 @@ if [ -n "${TRUSTED_DOMAIN}" ]; then
     done
 fi
 
-$PHP "$NC_DIR/occ" config:system:set default_language --value="fr"
-$PHP "$NC_DIR/occ" config:system:set default_locale --value="fr_BE"
-$PHP "$NC_DIR/occ" config:system:set overwriteprotocol --value="http"
-$PHP "$NC_DIR/occ" config:system:set log_type --value="file"
-$PHP "$NC_DIR/occ" config:system:set logfile --value="/home/container/nextcloud.log"
-$PHP "$NC_DIR/occ" config:system:set overwritecondaddr --value=""
-$PHP "$NC_DIR/occ" config:system:set cookie_samesite --value="Lax"
+$PHP "$NC_DIR/occ" config:system:set default_language          --value="fr"
+$PHP "$NC_DIR/occ" config:system:set default_locale            --value="fr_BE"
+$PHP "$NC_DIR/occ" config:system:set default_phone_region      --value="BE"
+$PHP "$NC_DIR/occ" config:system:set maintenance_window_start  --type=integer --value=1
+$PHP "$NC_DIR/occ" config:system:set overwriteprotocol         --value="http"
+$PHP "$NC_DIR/occ" config:system:set log_type                  --value="file"
+$PHP "$NC_DIR/occ" config:system:set logfile                   --value="/home/container/nextcloud.log"
+$PHP "$NC_DIR/occ" config:system:set overwritecondaddr         --value=""
+$PHP "$NC_DIR/occ" config:system:set cookie_samesite           --value="Lax"
 
 if php -r 'exit(extension_loaded("apcu") ? 0 : 1);'; then
     $PHP "$NC_DIR/occ" config:system:set memcache.local --value="\\OC\\Memcache\\APCu"
 fi
+
+echo "[*] Migration des mimetypes..."
+$PHP "$NC_DIR/occ" maintenance:repair --include-expensive 2>&1 | tail -3
 
 echo "[✓] Configuration appliquée."
 
@@ -153,8 +155,8 @@ http {
         location ~ ^/(?:build|tests|config|lib|3rdparty|templates|data)(?:\$|/)  { return 404; }
         location ~ ^/(?:\.|autotest|occ|issue|indie|db_|console)                 { return 404; }
 
-        location ~ ^/ocs-provider/ {
-            rewrite ^ /index.php\$request_uri;
+        location ^~ /ocs-provider/ {
+            try_files \$uri /index.php\$request_uri;
         }
 
         location ~ \.php(?:\$|/) {

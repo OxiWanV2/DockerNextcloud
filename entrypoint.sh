@@ -38,8 +38,11 @@ if [ "$STATUS" = "downloaded" ]; then
         exit 1
     fi
 
+    # IP seule, IP:PORT, localhost, localhost:PORT
     php "$NC_DIR/occ" config:system:set trusted_domains 0 --value="${SERVER_IP:-localhost}"
-    php "$NC_DIR/occ" config:system:set trusted_domains 1 --value="localhost"
+    php "$NC_DIR/occ" config:system:set trusted_domains 1 --value="${SERVER_IP:-localhost}:${SERVER_PORT}"
+    php "$NC_DIR/occ" config:system:set trusted_domains 2 --value="localhost"
+    php "$NC_DIR/occ" config:system:set trusted_domains 3 --value="localhost:${SERVER_PORT}"
     php "$NC_DIR/occ" config:system:set default_language --value="fr"
     php "$NC_DIR/occ" config:system:set default_locale --value="fr_BE"
     php "$NC_DIR/occ" config:system:set overwriteprotocol --value="http"
@@ -63,6 +66,8 @@ pm.max_children = 10
 pm.start_servers = 2
 pm.min_spare_servers = 1
 pm.max_spare_servers = 3
+php_admin_value[memory_limit] = 512M
+php_admin_flag[pcntl.enabled] = on
 EOF
 
 cat > /tmp/nginx.conf << EOF
@@ -92,7 +97,7 @@ http {
         location / { rewrite ^ /index.php; }
 
         location ~ \.php(?:\$|/) {
-            fastcgi_split_path_info ^(.+\.php)(/.*)\$;
+            fastcgi_split_path_info ^(.+\.php)(/.*)$;
             include /etc/nginx/fastcgi_params;
             fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
             fastcgi_param PATH_INFO \$fastcgi_path_info;

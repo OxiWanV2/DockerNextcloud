@@ -28,7 +28,8 @@ RUN apk add --no-cache \
     php82-openssl \
     php82-exif \
     php82-bz2 \
-    php82-posix
+    php82-posix \
+    php82-pcntl
 
 RUN ln -sf /usr/bin/php82 /usr/bin/php
 

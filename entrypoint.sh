@@ -2,6 +2,7 @@
 
 NC_DIR="/home/container/nextcloud"
 DATA_FILE="/home/container/.data"
+PHP="php -d memory_limit=512M -d extension=pcntl"
 
 STATUS=""
 [ -f "$DATA_FILE" ] && STATUS=$(grep "^STATUS=" "$DATA_FILE" | cut -d'=' -f2)
@@ -26,7 +27,7 @@ if [ "$STATUS" = "downloaded" ]; then
     echo ""
 
     echo "[*] Installation en cours..."
-    php "$NC_DIR/occ" maintenance:install \
+    $PHP "$NC_DIR/occ" maintenance:install \
         --database sqlite \
         --database-name nextcloud \
         --admin-user "$ADMIN_USER" \
@@ -38,17 +39,20 @@ if [ "$STATUS" = "downloaded" ]; then
         exit 1
     fi
 
-    php "$NC_DIR/occ" config:system:set trusted_domains 0 --value="${SERVER_IP:-localhost}"
-    php "$NC_DIR/occ" config:system:set trusted_domains 1 --value="${SERVER_IP:-localhost}:${SERVER_PORT}"
-    php "$NC_DIR/occ" config:system:set trusted_domains 2 --value="localhost"
-    php "$NC_DIR/occ" config:system:set trusted_domains 3 --value="localhost:${SERVER_PORT}"
-    php "$NC_DIR/occ" config:system:set default_language --value="fr"
-    php "$NC_DIR/occ" config:system:set default_locale --value="fr_BE"
-    php "$NC_DIR/occ" config:system:set overwriteprotocol --value="http"
-
     sed -i 's/STATUS=downloaded/STATUS=configured/' "$DATA_FILE"
-    echo "[✓] Nextcloud configuré avec succès !"
+    echo "[✓] Nextcloud installé avec succès !"
 fi
+
+echo "[*] Application de la configuration..."
+$PHP "$NC_DIR/occ" config:system:set trusted_domains 0 --value="${SERVER_IP:-localhost}"
+$PHP "$NC_DIR/occ" config:system:set trusted_domains 1 --value="${SERVER_IP:-localhost}:${SERVER_PORT}"
+$PHP "$NC_DIR/occ" config:system:set trusted_domains 2 --value="localhost"
+$PHP "$NC_DIR/occ" config:system:set trusted_domains 3 --value="localhost:${SERVER_PORT}"
+$PHP "$NC_DIR/occ" config:system:set default_language --value="fr"
+$PHP "$NC_DIR/occ" config:system:set default_locale --value="fr_BE"
+$PHP "$NC_DIR/occ" config:system:set overwriteprotocol --value="http"
+$PHP "$NC_DIR/occ" config:system:set memcache.local --value="\\OC\\Memcache\\APCu"
+echo "[✓] Configuration appliquée."
 
 mkdir -p /tmp/nginx/client_body /tmp/nginx/proxy /tmp/nginx/fastcgi /tmp/nginx/uwsgi /tmp/nginx/scgi
 
@@ -66,7 +70,7 @@ pm.start_servers = 2
 pm.min_spare_servers = 1
 pm.max_spare_servers = 3
 php_admin_value[memory_limit] = 512M
-php_admin_flag[pcntl.enabled] = on
+php_admin_value[extension] = pcntl.so
 EOF
 
 cat > /tmp/nginx.conf << EOF

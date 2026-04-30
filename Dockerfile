@@ -1,38 +1,43 @@
-FROM alpine:3.19
+FROM alpine:3.20
 
-RUN apk --update --no-cache add bash curl wget unzip nginx ca-certificates
+RUN apk --update --no-cache add bash curl wget unzip nginx ca-certificates imagemagick
 
 RUN apk add --no-cache \
-    php82 \
-    php82-fpm \
-    php82-opcache \
-    php82-gd \
-    php82-curl \
-    php82-xml \
-    php82-xmlwriter \
-    php82-xmlreader \
-    php82-simplexml \
-    php82-zip \
-    php82-mbstring \
-    php82-session \
-    php82-pdo \
-    php82-pdo_sqlite \
-    php82-pdo_mysql \
-    php82-pdo_pgsql \
-    php82-intl \
-    php82-bcmath \
-    php82-ctype \
-    php82-dom \
-    php82-fileinfo \
-    php82-iconv \
-    php82-openssl \
-    php82-exif \
-    php82-bz2 \
-    php82-posix \
-    php82-pcntl \
-    php82-apcu
+    php83 \
+    php83-fpm \
+    php83-opcache \
+    php83-gd \
+    php83-curl \
+    php83-xml \
+    php83-xmlwriter \
+    php83-xmlreader \
+    php83-simplexml \
+    php83-zip \
+    php83-mbstring \
+    php83-session \
+    php83-pdo \
+    php83-pdo_sqlite \
+    php83-pdo_mysql \
+    php83-pdo_pgsql \
+    php83-intl \
+    php83-bcmath \
+    php83-ctype \
+    php83-dom \
+    php83-fileinfo \
+    php83-iconv \
+    php83-openssl \
+    php83-exif \
+    php83-bz2 \
+    php83-posix \
+    php83-pcntl \
+    php83-apcu \
+    php83-gmp \
+    php83-sodium \
+    php83-sysvsem \
+    php83-pecl-imagick
 
-RUN ln -sf /usr/bin/php82 /usr/bin/php
+RUN ln -sf /usr/bin/php83 /usr/bin/php && \
+    ln -sf /usr/sbin/php-fpm83 /usr/sbin/php-fpm83
 
 USER container
 ENV USER=container

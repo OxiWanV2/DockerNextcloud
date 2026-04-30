@@ -17,9 +17,9 @@ if [ "$STATUS" = "downloaded" ]; then
     echo "║     Configuration de Nextcloud       ║"
     echo "╚══════════════════════════════════════╝"
     echo ""
-    echo -n "  Nom d'utilisateur admin : "
+    echo "  Nom d'utilisateur admin :"
     read -r ADMIN_USER
-    echo -n "  Mot de passe admin      : "
+    echo "  Mot de passe admin :"
     stty -echo
     read -r ADMIN_PASS
     stty echo
@@ -38,7 +38,6 @@ if [ "$STATUS" = "downloaded" ]; then
         exit 1
     fi
 
-    # IP seule, IP:PORT, localhost, localhost:PORT
     php "$NC_DIR/occ" config:system:set trusted_domains 0 --value="${SERVER_IP:-localhost}"
     php "$NC_DIR/occ" config:system:set trusted_domains 1 --value="${SERVER_IP:-localhost}:${SERVER_PORT}"
     php "$NC_DIR/occ" config:system:set trusted_domains 2 --value="localhost"

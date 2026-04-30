@@ -2,7 +2,7 @@
 
 NC_DIR="/home/container/nextcloud"
 DATA_FILE="/home/container/.data"
-PHP="php -d memory_limit=512M -d extension=pcntl"
+PHP="php -d memory_limit=512M"
 
 STATUS=""
 [ -f "$DATA_FILE" ] && STATUS=$(grep "^STATUS=" "$DATA_FILE" | cut -d'=' -f2)
@@ -40,7 +40,7 @@ if [ "$STATUS" = "downloaded" ]; then
     fi
 
     sed -i 's/STATUS=downloaded/STATUS=configured/' "$DATA_FILE"
-    echo "[✓] Nextcloud installé avec succès !"
+    echo "[✓] Nextcloud installé."
 fi
 
 echo "[*] Application de la configuration..."
@@ -56,7 +56,7 @@ echo "[✓] Configuration appliquée."
 
 mkdir -p /tmp/nginx/client_body /tmp/nginx/proxy /tmp/nginx/fastcgi /tmp/nginx/uwsgi /tmp/nginx/scgi
 
-cat > /tmp/php-fpm.conf << EOF
+cat > /tmp/php-fpm.conf << 'EOF'
 [global]
 pid = /tmp/php-fpm.pid
 error_log = /tmp/php-fpm.log
@@ -70,7 +70,6 @@ pm.start_servers = 2
 pm.min_spare_servers = 1
 pm.max_spare_servers = 3
 php_admin_value[memory_limit] = 512M
-php_admin_value[extension] = pcntl.so
 EOF
 
 cat > /tmp/nginx.conf << EOF
@@ -92,15 +91,15 @@ http {
 
     server {
         listen ${SERVER_PORT};
-        root $NC_DIR;
+        root ${NC_DIR};
         index index.php index.html;
         client_max_body_size 10G;
 
         location = /robots.txt { allow all; log_not_found off; access_log off; }
         location / { rewrite ^ /index.php; }
 
-        location ~ \.php(?:\$|/) {
-            fastcgi_split_path_info ^(.+\.php)(/.*)$;
+        location ~ \.php(?:\\$|/) {
+            fastcgi_split_path_info ^(.+\.php)(/.+)\$;
             include /etc/nginx/fastcgi_params;
             fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
             fastcgi_param PATH_INFO \$fastcgi_path_info;
@@ -121,5 +120,17 @@ http {
 EOF
 
 php-fpm82 -y /tmp/php-fpm.conf
+if [ $? -ne 0 ]; then
+    echo "[!] Echec demarrage php-fpm."
+    exit 1
+fi
+
+nginx -t -e /tmp/nginx_error.log -c /tmp/nginx.conf
+if [ $? -ne 0 ]; then
+    echo "[!] Configuration nginx invalide."
+    cat /tmp/nginx_error.log
+    exit 1
+fi
+
 echo "[✓] Nextcloud démarré sur le port ${SERVER_PORT}"
 exec nginx -e /tmp/nginx_error.log -c /tmp/nginx.conf -g "daemon off;"

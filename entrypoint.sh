@@ -2,6 +2,8 @@
 
 NC_DIR="/home/container/nextcloud"
 DATA_FILE="/home/container/.data"
+LOG_NGINX="/home/container/nginx.log"
+LOG_FPM="/home/container/php-fpm.log"
 PHP="php -d memory_limit=512M"
 
 STATUS=""
@@ -51,15 +53,21 @@ $PHP "$NC_DIR/occ" config:system:set trusted_domains 3 --value="localhost:${SERV
 $PHP "$NC_DIR/occ" config:system:set default_language --value="fr"
 $PHP "$NC_DIR/occ" config:system:set default_locale --value="fr_BE"
 $PHP "$NC_DIR/occ" config:system:set overwriteprotocol --value="http"
-$PHP "$NC_DIR/occ" config:system:set memcache.local --value="\\OC\\Memcache\\APCu"
+$PHP "$NC_DIR/occ" config:system:set log_type --value="file"
+$PHP "$NC_DIR/occ" config:system:set logfile --value="/home/container/nextcloud.log"
+
+if php -r 'exit(extension_loaded("apcu") ? 0 : 1);'; then
+    $PHP "$NC_DIR/occ" config:system:set memcache.local --value="\\OC\\Memcache\\APCu"
+fi
+
 echo "[✓] Configuration appliquée."
 
 mkdir -p /tmp/nginx/client_body /tmp/nginx/proxy /tmp/nginx/fastcgi /tmp/nginx/uwsgi /tmp/nginx/scgi
 
-cat > /tmp/php-fpm.conf << 'EOF'
+cat > /tmp/php-fpm.conf << EOF
 [global]
 pid = /tmp/php-fpm.pid
-error_log = /tmp/php-fpm.log
+error_log = ${LOG_FPM}
 
 [www]
 listen = /tmp/php-fpm.sock
@@ -70,6 +78,7 @@ pm.start_servers = 2
 pm.min_spare_servers = 1
 pm.max_spare_servers = 3
 php_admin_value[memory_limit] = 512M
+php_admin_flag[apc.enabled] = 1
 EOF
 
 cat > /tmp/nginx.conf << EOF
@@ -81,8 +90,8 @@ events { worker_connections 1024; }
 http {
     include /etc/nginx/mime.types;
     default_type application/octet-stream;
-    access_log /tmp/nginx_access.log;
-    error_log /tmp/nginx_error.log;
+    access_log ${LOG_NGINX};
+    error_log ${LOG_NGINX};
     client_body_temp_path /tmp/nginx/client_body;
     proxy_temp_path /tmp/nginx/proxy;
     fastcgi_temp_path /tmp/nginx/fastcgi;
@@ -125,12 +134,13 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-nginx -t -e /tmp/nginx_error.log -c /tmp/nginx.conf
+nginx -t -e ${LOG_NGINX} -c /tmp/nginx.conf
 if [ $? -ne 0 ]; then
     echo "[!] Configuration nginx invalide."
-    cat /tmp/nginx_error.log
+    cat ${LOG_NGINX}
     exit 1
 fi
 
 echo "[✓] Nextcloud démarré sur le port ${SERVER_PORT}"
-exec nginx -e /tmp/nginx_error.log -c /tmp/nginx.conf -g "daemon off;"
+echo "[✓] Logs : ${LOG_NGINX} | ${LOG_FPM} | /home/container/nextcloud.log"
+exec nginx -e ${LOG_NGINX} -c /tmp/nginx.conf -g "daemon off;"

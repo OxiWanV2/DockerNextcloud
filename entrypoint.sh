@@ -132,14 +132,14 @@ http {
         location = /favicon.ico { try_files \$uri =204; log_not_found off; access_log off; }
 
         location ~* \.(?:css|js|mjs|map|woff2?|ttf|otf|eot|svg|gif|png|jpg|jpeg|ico|webp|avif|mp4|webm|ogv|ogg|mp3|wav|flac|aac)\$ {
-            try_files \$uri /index.php\$request_uri;
+            try_files \$uri @fallback;
             expires 6M;
             add_header Cache-Control "public, immutable";
             access_log off;
         }
 
         location ~ ^/(?:index|remote|public|cron|status|updater/.+|ocs/v[12]|ocs-provider/.+)\.php(?:\$|/) {
-            fastcgi_split_path_info ^(.+?\.php)(/.*)$;
+            fastcgi_split_path_info ^(.+?\.php)(/.*)\$;
             set \$path_info \$fastcgi_path_info;
             include /etc/nginx/fastcgi_params;
             fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
@@ -156,6 +156,18 @@ http {
 
         location / {
             rewrite ^ /index.php last;
+        }
+
+        location @fallback {
+            include /etc/nginx/fastcgi_params;
+            fastcgi_param SCRIPT_FILENAME \${document_root}/index.php;
+            fastcgi_param PATH_INFO       \$request_uri;
+            fastcgi_param HTTPS           off;
+            fastcgi_param front_controller_active true;
+            fastcgi_pass  unix:/tmp/php-fpm.sock;
+            fastcgi_intercept_errors on;
+            fastcgi_request_buffering off;
+            fastcgi_read_timeout 600;
         }
     }
 }

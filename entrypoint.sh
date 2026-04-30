@@ -1,4 +1,5 @@
 #!/bin/bash
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 NC_DIR="/home/container/nextcloud"
 DATA_FILE="/home/container/.data"
@@ -178,7 +179,7 @@ http {
 }
 EOF
 
-/usr/sbin/php-fpm83 -y /tmp/php-fpm.conf
+php-fpm83 -y /tmp/php-fpm.conf
 if [ $? -ne 0 ]; then
     echo "[!] Echec demarrage php-fpm."
     exit 1

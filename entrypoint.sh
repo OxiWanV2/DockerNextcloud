@@ -41,6 +41,9 @@ if [ "$STATUS" = "downloaded" ]; then
         exit 1
     fi
 
+    echo "[*] Migration des mimetypes..."
+    $PHP "$NC_DIR/occ" maintenance:repair --include-expensive
+
     sed -i 's/STATUS=downloaded/STATUS=configured/' "$DATA_FILE"
     echo "[✓] Nextcloud installé."
 fi
@@ -92,8 +95,13 @@ pm.max_children = 10
 pm.start_servers = 2
 pm.min_spare_servers = 1
 pm.max_spare_servers = 3
+clear_env = no
 php_admin_value[memory_limit] = 512M
 php_admin_flag[apc.enabled] = 1
+php_admin_value[opcache.interned_strings_buffer] = 16
+php_admin_value[opcache.max_accelerated_files] = 10000
+php_admin_value[opcache.memory_consumption] = 128
+php_admin_flag[opcache.enable] = 1
 EOF
 
 cat > /tmp/nginx.conf << EOF
@@ -134,13 +142,19 @@ http {
         location = /favicon.ico { try_files \$uri =204; log_not_found off; access_log off; }
 
         location ^~ /.well-known {
-            location = /.well-known/carddav { return 301 /remote.php/dav/; }
-            location = /.well-known/caldav  { return 301 /remote.php/dav/; }
+            location = /.well-known/carddav   { return 301 /remote.php/dav/; }
+            location = /.well-known/caldav    { return 301 /remote.php/dav/; }
+            location = /.well-known/webfinger { return 301 /index.php/.well-known/webfinger; }
+            location = /.well-known/nodeinfo  { return 301 /index.php/.well-known/nodeinfo; }
             try_files \$uri \$uri/ =404;
         }
 
         location ~ ^/(?:build|tests|config|lib|3rdparty|templates|data)(?:\$|/)  { return 404; }
         location ~ ^/(?:\.|autotest|occ|issue|indie|db_|console)                 { return 404; }
+
+        location ~ ^/ocs-provider/ {
+            rewrite ^ /index.php\$request_uri;
+        }
 
         location ~ \.php(?:\$|/) {
             fastcgi_split_path_info ^(.+?\.php)(/.*)\$;

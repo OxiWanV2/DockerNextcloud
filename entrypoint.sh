@@ -46,10 +46,25 @@ if [ "$STATUS" = "downloaded" ]; then
 fi
 
 echo "[*] Application de la configuration..."
+
+# Trusted domains de base : IP + localhost
 $PHP "$NC_DIR/occ" config:system:set trusted_domains 0 --value="${SERVER_IP:-localhost}"
 $PHP "$NC_DIR/occ" config:system:set trusted_domains 1 --value="${SERVER_IP:-localhost}:${SERVER_PORT}"
 $PHP "$NC_DIR/occ" config:system:set trusted_domains 2 --value="localhost"
 $PHP "$NC_DIR/occ" config:system:set trusted_domains 3 --value="localhost:${SERVER_PORT}"
+
+# Trusted domains supplémentaires : variable TRUSTED_DOMAIN séparée par virgules
+if [ -n "${TRUSTED_DOMAIN}" ]; then
+    IFS=',' read -ra EXTRA_DOMAINS <<< "${TRUSTED_DOMAIN}"
+    IDX=4
+    for DOMAIN in "${EXTRA_DOMAINS[@]}"; do
+        DOMAIN=$(echo "$DOMAIN" | tr -d ' ')
+        [ -z "$DOMAIN" ] && continue
+        $PHP "$NC_DIR/occ" config:system:set trusted_domains $IDX --value="$DOMAIN"
+        IDX=$((IDX + 1))
+    done
+fi
+
 $PHP "$NC_DIR/occ" config:system:set default_language --value="fr"
 $PHP "$NC_DIR/occ" config:system:set default_locale --value="fr_BE"
 $PHP "$NC_DIR/occ" config:system:set overwriteprotocol --value="http"
@@ -81,6 +96,9 @@ php_admin_value[memory_limit] = 512M
 php_admin_flag[apc.enabled] = 1
 EOF
 
+# NOTE: location = /index.php (exact match) capte le rewrite de "location /"
+# sans boucler, car l'exact match a la priorité maximale et ne repasse
+# pas par les autres locations.
 cat > /tmp/nginx.conf << EOF
 worker_processes 1;
 pid /tmp/nginx.pid;
@@ -101,31 +119,36 @@ http {
     server {
         listen ${SERVER_PORT};
         root ${NC_DIR};
-        index index.php index.html;
         client_max_body_size 10G;
 
         location = /robots.txt { allow all; log_not_found off; access_log off; }
 
-        location / {
-            try_files \$uri \$uri/ /index.php\$request_uri;
+        # Fichiers statiques servis directement
+        location ~ \.(?:css|js|woff2?|svg|gif|png|ico|webp)\$ {
+            try_files \$uri =404;
+            expires 6M;
+            access_log off;
         }
 
-        location ~ \.php\$ {
-            fastcgi_split_path_info ^(.+\.php)(/.*)\$;
+        # Point d'entrée PHP unique : exact match => pas de boucle
+        location = /index.php {
             include /etc/nginx/fastcgi_params;
-            fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
-            fastcgi_param PATH_INFO \$fastcgi_path_info;
-            fastcgi_param HTTPS off;
+            fastcgi_param SCRIPT_FILENAME ${NC_DIR}/index.php;
+            fastcgi_param SCRIPT_NAME     /index.php;
+            fastcgi_param REQUEST_URI     \$request_uri;
+            fastcgi_param HTTPS           off;
             fastcgi_param front_controller_active true;
-            fastcgi_pass unix:/tmp/php-fpm.sock;
+            fastcgi_pass  unix:/tmp/php-fpm.sock;
             fastcgi_intercept_errors on;
             fastcgi_request_buffering off;
         }
 
-        location ~ \.(?:css|js|woff2?|svg|gif|png|ico)\$ {
-            try_files \$uri /index.php\$request_uri;
-            expires 6M;
-            access_log off;
+        # Bloquer l'accès direct aux autres .php
+        location ~ \.php\$ { return 404; }
+
+        # Tout le reste => rewrite vers /index.php (sera capté par l'exact match ci-dessus)
+        location / {
+            rewrite ^ /index.php last;
         }
     }
 }

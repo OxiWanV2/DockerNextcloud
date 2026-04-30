@@ -96,9 +96,14 @@ php_admin_value[memory_limit] = 512M
 php_admin_flag[apc.enabled] = 1
 EOF
 
-# NOTE: location = /index.php (exact match) capte le rewrite de "location /"
-# sans boucler, car l'exact match a la priorité maximale et ne repasse
-# pas par les autres locations.
+# Config nginx baseée sur la recommandation officielle Nextcloud :
+# https://docs.nextcloud.com/server/latest/admin_manual/installation/nginx.html
+#
+# Points d'entrée PHP réels : index.php, remote.php, public.php,
+#   cron.php, status.php, ocs/v1.php, ocs/v2.php, ocs-provider/index.php
+# Tout le reste est re-écrit vers index.php (front controller).
+# Les assets statiques (.mjs, .js, .css, images...) sont servis
+# directement par nginx sans passer par PHP.
 cat > /tmp/nginx.conf << EOF
 worker_processes 1;
 pid /tmp/nginx.pid;
@@ -116,37 +121,49 @@ http {
     uwsgi_temp_path /tmp/nginx/uwsgi;
     scgi_temp_path /tmp/nginx/scgi;
 
+    # MIME type pour les modules ES
+    types {
+        application/javascript mjs;
+    }
+
     server {
         listen ${SERVER_PORT};
         root ${NC_DIR};
         client_max_body_size 10G;
 
-        location = /robots.txt { allow all; log_not_found off; access_log off; }
+        location = /robots.txt  { allow all; log_not_found off; access_log off; }
+        location = /favicon.ico { try_files \$uri =204; log_not_found off; access_log off; }
 
-        # Fichiers statiques servis directement
-        location ~ \.(?:css|js|woff2?|svg|gif|png|ico|webp)\$ {
+        # --- Fichiers statiques servis DIRECTEMENT par nginx (sans PHP) ---
+        # Inclut .mjs (modules ES), .js, .css, fonts, images, etc.
+        location ~* \.(?:css|js|mjs|map|woff2?|ttf|otf|eot|svg|gif|png|jpg|jpeg|ico|webp|avif)\$ {
             try_files \$uri =404;
             expires 6M;
+            add_header Cache-Control "public, immutable";
             access_log off;
         }
 
-        # Point d'entrée PHP unique : exact match => pas de boucle
-        location = /index.php {
+        # --- Points d'entrée PHP légitimes de Nextcloud ---
+        # (index, remote, public, cron, status, ocs/v1, ocs/v2, ocs-provider)
+        location ~ ^/(?:index|remote|public|cron|status|updater/.+|ocs/v[12]|ocs-provider/.+)\.php(?:\$|/) {
+            fastcgi_split_path_info ^(.+?\.php)(/.*)\$;
+            set \$path_info \$fastcgi_path_info;
             include /etc/nginx/fastcgi_params;
-            fastcgi_param SCRIPT_FILENAME ${NC_DIR}/index.php;
-            fastcgi_param SCRIPT_NAME     /index.php;
-            fastcgi_param REQUEST_URI     \$request_uri;
+            fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+            fastcgi_param PATH_INFO       \$path_info;
             fastcgi_param HTTPS           off;
             fastcgi_param front_controller_active true;
             fastcgi_pass  unix:/tmp/php-fpm.sock;
             fastcgi_intercept_errors on;
             fastcgi_request_buffering off;
+            fastcgi_read_timeout 600;
         }
 
-        # Bloquer l'accès direct aux autres .php
+        # --- Bloquer tout autre .php (sécurité) ---
         location ~ \.php\$ { return 404; }
 
-        # Tout le reste => rewrite vers /index.php (sera capté par l'exact match ci-dessus)
+        # --- Front controller : tout le reste via index.php ---
+        # rewrite sans boucle : /login -> /index.php (capturé par la règle .php ci-dessus)
         location / {
             rewrite ^ /index.php last;
         }

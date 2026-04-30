@@ -1,35 +1,17 @@
 #!/bin/bash
 
 NC_DIR="/home/container/nextcloud"
-DATA_DIR="/home/container/nextcloud/data"
+DATA_FILE="/home/container/.data"
 
-if [ ! -f "$NC_DIR/index.php" ]; then
-    echo "[*] Téléchargement de Nextcloud (dernière version stable)..."
+STATUS=""
+[ -f "$DATA_FILE" ] && STATUS=$(grep "^STATUS=" "$DATA_FILE" | cut -d'=' -f2)
 
-    curl -L --progress-bar \
-        "https://download.nextcloud.com/server/releases/latest.zip" \
-        -o /tmp/nextcloud.zip
-
-    if [ $? -ne 0 ] || [ ! -s /tmp/nextcloud.zip ]; then
-        echo "[!] Échec du téléchargement."
-        exit 1
-    fi
-
-    echo "[*] Extraction..."
-    unzip /tmp/nextcloud.zip -d /home/container/
-
-    if [ $? -ne 0 ]; then
-        echo "[!] Échec de l'extraction."
-        rm -f /tmp/nextcloud.zip
-        exit 1
-    fi
-
-    rm /tmp/nextcloud.zip
-    mkdir -p "$DATA_DIR"
-    echo "[✓] Nextcloud téléchargé."
+if [ "$STATUS" = "" ]; then
+    echo "[!] Fichier .data introuvable. Relancez l'installation depuis le panel."
+    exit 1
 fi
 
-if [ ! -f "$NC_DIR/config/config.php" ]; then
+if [ "$STATUS" = "downloaded" ]; then
     echo ""
     echo "╔══════════════════════════════════════╗"
     echo "║     Configuration de Nextcloud       ║"
@@ -45,7 +27,7 @@ if [ ! -f "$NC_DIR/config/config.php" ]; then
         --database-name nextcloud \
         --admin-user "$ADMIN_USER" \
         --admin-pass "$ADMIN_PASS" \
-        --data-dir "$DATA_DIR"
+        --data-dir "$NC_DIR/data"
 
     if [ $? -ne 0 ]; then
         echo "[!] Échec de l'installation."
@@ -58,6 +40,7 @@ if [ ! -f "$NC_DIR/config/config.php" ]; then
     php "$NC_DIR/occ" config:system:set default_locale --value="fr_BE"
     php "$NC_DIR/occ" config:system:set overwriteprotocol --value="http"
 
+    sed -i 's/STATUS=downloaded/STATUS=configured/' "$DATA_FILE"
     echo "[✓] Nextcloud configuré avec succès !"
 fi
 

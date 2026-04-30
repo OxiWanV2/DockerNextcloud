@@ -27,7 +27,8 @@ RUN apk add --no-cache \
     php82-iconv \
     php82-openssl \
     php82-exif \
-    php82-bz2
+    php82-bz2 \
+    php82-posix
 
 RUN ln -sf /usr/bin/php82 /usr/bin/php
 

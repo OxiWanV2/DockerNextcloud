@@ -17,8 +17,12 @@ if [ "$STATUS" = "downloaded" ]; then
     echo "║     Configuration de Nextcloud       ║"
     echo "╚══════════════════════════════════════╝"
     echo ""
-    read -rp "  Nom d'utilisateur admin : " ADMIN_USER
-    read -rsp "  Mot de passe admin      : " ADMIN_PASS
+    echo -n "  Nom d'utilisateur admin : "
+    read -r ADMIN_USER
+    echo -n "  Mot de passe admin      : "
+    stty -echo
+    read -r ADMIN_PASS
+    stty echo
     echo ""
 
     echo "[*] Installation en cours..."

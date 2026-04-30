@@ -36,8 +36,7 @@ RUN apk add --no-cache \
     php83-sysvsem \
     php83-pecl-imagick
 
-RUN ln -sf /usr/bin/php83 /usr/bin/php && \
-    ln -sf /usr/sbin/php-fpm83 /usr/sbin/php-fpm83
+RUN ln -sf /usr/bin/php83 /usr/bin/php
 
 USER container
 ENV USER=container

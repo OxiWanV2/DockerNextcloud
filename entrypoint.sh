@@ -178,7 +178,7 @@ http {
 }
 EOF
 
-php-fpm82 -y /tmp/php-fpm.conf
+php-fpm83 -y /tmp/php-fpm.conf
 if [ $? -ne 0 ]; then
     echo "[!] Echec demarrage php-fpm."
     exit 1

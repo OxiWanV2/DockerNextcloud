@@ -5,7 +5,7 @@ Image Docker Alpine + PHP 8.2 + Nginx conçue pour héberger [Nextcloud](https:/
 ## Stack
 
 - Alpine Linux (latest)
-- PHP 8.2 avec les extensions requises par Nextcloud
+- PHP 8.3 avec les extensions requises par Nextcloud
 - Nginx
 - Bash
 

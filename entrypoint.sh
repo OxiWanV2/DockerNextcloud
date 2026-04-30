@@ -69,7 +69,6 @@ $PHP "$NC_DIR/occ" config:system:set overwriteprotocol --value="http"
 $PHP "$NC_DIR/occ" config:system:set log_type --value="file"
 $PHP "$NC_DIR/occ" config:system:set logfile --value="/home/container/nextcloud.log"
 $PHP "$NC_DIR/occ" config:system:set overwritecondaddr --value=""
-# Lax permet au navigateur d'envoyer nc_sameSiteCookiestrict sur les sous-requetes CSS/JS
 $PHP "$NC_DIR/occ" config:system:set cookie_samesite --value="Lax"
 
 if php -r 'exit(extension_loaded("apcu") ? 0 : 1);'; then
@@ -134,16 +133,19 @@ http {
         location = /robots.txt  { allow all; log_not_found off; access_log off; }
         location = /favicon.ico { try_files \$uri =204; log_not_found off; access_log off; }
 
-        location ~* \.(?:css|js|mjs|map|woff2?|ttf|otf|eot|svg|gif|png|jpg|jpeg|ico|webp|avif|mp4|webm|ogv|ogg|mp3|wav|flac|aac)\$ {
-            try_files \$uri @fallback;
-            expires 6M;
-            add_header Cache-Control "public, immutable";
-            access_log off;
+        location ^~ /.well-known {
+            location = /.well-known/carddav { return 301 /remote.php/dav/; }
+            location = /.well-known/caldav  { return 301 /remote.php/dav/; }
+            try_files \$uri \$uri/ =404;
         }
 
-        location ~ ^/(?:index|remote|public|cron|status|updater/.+|ocs/v[12]|ocs-provider/.+)\.php(?:\$|/) {
+        location ~ ^/(?:build|tests|config|lib|3rdparty|templates|data)(?:\$|/)  { return 404; }
+        location ~ ^/(?:\.|autotest|occ|issue|indie|db_|console)                 { return 404; }
+
+        location ~ \.php(?:\$|/) {
             fastcgi_split_path_info ^(.+?\.php)(/.*)\$;
             set \$path_info \$fastcgi_path_info;
+            try_files \$fastcgi_script_name =404;
             include /etc/nginx/fastcgi_params;
             fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
             fastcgi_param PATH_INFO       \$path_info;
@@ -155,25 +157,8 @@ http {
             fastcgi_read_timeout 600;
         }
 
-        location ~ \.php\$ { return 404; }
-
         location / {
-            rewrite ^ /index.php last;
-        }
-
-        # @fallback : fichier statique absent -> router Nextcloud via index.php
-        # PATH_INFO = \$uri SANS query string, QUERY_STRING transmis separement
-        location @fallback {
-            include /etc/nginx/fastcgi_params;
-            fastcgi_param SCRIPT_FILENAME \${document_root}/index.php;
-            fastcgi_param PATH_INFO       \$uri;
-            fastcgi_param QUERY_STRING    \$query_string;
-            fastcgi_param HTTPS           off;
-            fastcgi_param front_controller_active true;
-            fastcgi_pass  unix:/tmp/php-fpm.sock;
-            fastcgi_intercept_errors on;
-            fastcgi_request_buffering off;
-            fastcgi_read_timeout 600;
+            try_files \$uri \$uri/ /index.php\$request_uri;
         }
     }
 }

@@ -1,4 +1,4 @@
-FROM alpine:latest
+FROM alpine:3.19
 
 RUN apk --update --no-cache add bash curl wget unzip nginx ca-certificates
 
@@ -32,8 +32,8 @@ RUN apk add --no-cache \
 RUN ln -sf /usr/bin/php82 /usr/bin/php
 
 USER container
-ENV USER container
-ENV HOME /home/container
+ENV USER=container
+ENV HOME=/home/container
 
 WORKDIR /home/container
 COPY ./entrypoint.sh /entrypoint.sh

@@ -105,10 +105,13 @@ http {
         client_max_body_size 10G;
 
         location = /robots.txt { allow all; log_not_found off; access_log off; }
-        location / { rewrite ^ /index.php; }
 
-        location ~ \.php(?:\\$|/) {
-            fastcgi_split_path_info ^(.+\.php)(/.+)\$;
+        location / {
+            try_files \$uri \$uri/ /index.php\$request_uri;
+        }
+
+        location ~ \.php\$ {
+            fastcgi_split_path_info ^(.+\.php)(/.*)\$;
             include /etc/nginx/fastcgi_params;
             fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
             fastcgi_param PATH_INFO \$fastcgi_path_info;

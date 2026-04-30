@@ -9,13 +9,33 @@ if [ ! -f "$NC_DIR/index.php" ]; then
     NC_VERSION=$(curl -s https://api.github.com/repos/nextcloud/server/releases/latest \
         | grep '"tag_name"' | head -1 | cut -d'"' -f4 | sed 's/v//')
 
-    echo "[*] Téléchargement de Nextcloud v${NC_VERSION}..."
-    wget -q "https://download.nextcloud.com/server/releases/nextcloud-${NC_VERSION}.zip" \
-        -O /tmp/nextcloud.zip
+    if [ -z "$NC_VERSION" ]; then
+        echo "[!] Impossible de récupérer la version, utilisation de la version stable par défaut..."
+        NC_VERSION="30.0.4"
+    fi
 
-    unzip -q /tmp/nextcloud.zip -d /home/container/
+    echo "[*] Téléchargement de Nextcloud v${NC_VERSION}..."
+    curl -L --progress-bar \
+        "https://download.nextcloud.com/server/releases/nextcloud-${NC_VERSION}.zip" \
+        -o /tmp/nextcloud.zip
+
+    if [ $? -ne 0 ] || [ ! -s /tmp/nextcloud.zip ]; then
+        echo "[!] Échec du téléchargement."
+        exit 1
+    fi
+
+    echo "[*] Extraction..."
+    unzip /tmp/nextcloud.zip -d /home/container/
+
+    if [ $? -ne 0 ]; then
+        echo "[!] Échec de l'extraction."
+        rm -f /tmp/nextcloud.zip
+        exit 1
+    fi
+
     rm /tmp/nextcloud.zip
     mkdir -p "$DATA_DIR"
+    echo "[✓] Nextcloud téléchargé."
 fi
 
 if [ ! -f "$NC_DIR/config/config.php" ]; then
@@ -24,8 +44,8 @@ if [ ! -f "$NC_DIR/config/config.php" ]; then
     echo "║     Configuration de Nextcloud       ║"
     echo "╚══════════════════════════════════════╝"
     echo ""
-    read -p "  Nom d'utilisateur admin : " ADMIN_USER
-    read -s -p "  Mot de passe admin      : " ADMIN_PASS
+    read -rp "  Nom d'utilisateur admin : " ADMIN_USER
+    read -rsp "  Mot de passe admin      : " ADMIN_PASS
     echo ""
 
     echo "[*] Installation en cours..."
@@ -34,7 +54,12 @@ if [ ! -f "$NC_DIR/config/config.php" ]; then
         --database-name nextcloud \
         --admin-user "$ADMIN_USER" \
         --admin-pass "$ADMIN_PASS" \
-        --data-dir "$DATA_DIR" 2>/dev/null
+        --data-dir "$DATA_DIR"
+
+    if [ $? -ne 0 ]; then
+        echo "[!] Échec de l'installation."
+        exit 1
+    fi
 
     php "$NC_DIR/occ" config:system:set trusted_domains 0 --value="${SERVER_IP:-localhost}"
     php "$NC_DIR/occ" config:system:set trusted_domains 1 --value="localhost"

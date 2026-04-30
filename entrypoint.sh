@@ -68,6 +68,9 @@ $PHP "$NC_DIR/occ" config:system:set default_locale --value="fr_BE"
 $PHP "$NC_DIR/occ" config:system:set overwriteprotocol --value="http"
 $PHP "$NC_DIR/occ" config:system:set log_type --value="file"
 $PHP "$NC_DIR/occ" config:system:set logfile --value="/home/container/nextcloud.log"
+$PHP "$NC_DIR/occ" config:system:set overwritecondaddr --value=""
+# Lax permet au navigateur d'envoyer nc_sameSiteCookiestrict sur les sous-requetes CSS/JS
+$PHP "$NC_DIR/occ" config:system:set cookie_samesite --value="Lax"
 
 if php -r 'exit(extension_loaded("apcu") ? 0 : 1);'; then
     $PHP "$NC_DIR/occ" config:system:set memcache.local --value="\\OC\\Memcache\\APCu"
@@ -158,10 +161,13 @@ http {
             rewrite ^ /index.php last;
         }
 
+        # @fallback : fichier statique absent -> router Nextcloud via index.php
+        # PATH_INFO = \$uri SANS query string, QUERY_STRING transmis separement
         location @fallback {
             include /etc/nginx/fastcgi_params;
             fastcgi_param SCRIPT_FILENAME \${document_root}/index.php;
-            fastcgi_param PATH_INFO       \$request_uri;
+            fastcgi_param PATH_INFO       \$uri;
+            fastcgi_param QUERY_STRING    \$query_string;
             fastcgi_param HTTPS           off;
             fastcgi_param front_controller_active true;
             fastcgi_pass  unix:/tmp/php-fpm.sock;

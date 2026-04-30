@@ -47,13 +47,11 @@ fi
 
 echo "[*] Application de la configuration..."
 
-# Trusted domains de base : IP + localhost
 $PHP "$NC_DIR/occ" config:system:set trusted_domains 0 --value="${SERVER_IP:-localhost}"
 $PHP "$NC_DIR/occ" config:system:set trusted_domains 1 --value="${SERVER_IP:-localhost}:${SERVER_PORT}"
 $PHP "$NC_DIR/occ" config:system:set trusted_domains 2 --value="localhost"
 $PHP "$NC_DIR/occ" config:system:set trusted_domains 3 --value="localhost:${SERVER_PORT}"
 
-# Trusted domains supplémentaires : variable TRUSTED_DOMAIN séparée par virgules
 if [ -n "${TRUSTED_DOMAIN}" ]; then
     IFS=',' read -ra EXTRA_DOMAINS <<< "${TRUSTED_DOMAIN}"
     IDX=4
@@ -106,10 +104,8 @@ http {
     include /etc/nginx/mime.types;
     default_type application/octet-stream;
 
-    # MIME type pour les modules ES
     types { application/javascript mjs; }
 
-    # Performances
     sendfile on;
     tcp_nopush on;
     tcp_nodelay on;
@@ -135,18 +131,15 @@ http {
         location = /robots.txt  { allow all; log_not_found off; access_log off; }
         location = /favicon.ico { try_files \$uri =204; log_not_found off; access_log off; }
 
-        # --- Fichiers statiques servis DIRECTEMENT (sans PHP) ---
-        # JS/CSS/fonts/images + vidéos + audio
         location ~* \.(?:css|js|mjs|map|woff2?|ttf|otf|eot|svg|gif|png|jpg|jpeg|ico|webp|avif|mp4|webm|ogv|ogg|mp3|wav|flac|aac)\$ {
-            try_files \$uri =404;
+            try_files \$uri /index.php\$request_uri;
             expires 6M;
             add_header Cache-Control "public, immutable";
             access_log off;
         }
 
-        # --- Points d'entrée PHP légitimes de Nextcloud ---
         location ~ ^/(?:index|remote|public|cron|status|updater/.+|ocs/v[12]|ocs-provider/.+)\.php(?:\$|/) {
-            fastcgi_split_path_info ^(.+?\.php)(/.*)\$;
+            fastcgi_split_path_info ^(.+?\.php)(/.*)$;
             set \$path_info \$fastcgi_path_info;
             include /etc/nginx/fastcgi_params;
             fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
@@ -159,10 +152,8 @@ http {
             fastcgi_read_timeout 600;
         }
 
-        # --- Bloquer tout autre .php (sécurité) ---
         location ~ \.php\$ { return 404; }
 
-        # --- Front controller ---
         location / {
             rewrite ^ /index.php last;
         }

@@ -4,19 +4,10 @@ NC_DIR="/home/container/nextcloud"
 DATA_DIR="/home/container/nextcloud/data"
 
 if [ ! -f "$NC_DIR/index.php" ]; then
-    echo "[*] Première installation de Nextcloud..."
+    echo "[*] Téléchargement de Nextcloud (dernière version stable)..."
 
-    NC_VERSION=$(curl -s https://api.github.com/repos/nextcloud/server/releases/latest \
-        | grep '"tag_name"' | head -1 | cut -d'"' -f4 | sed 's/v//')
-
-    if [ -z "$NC_VERSION" ]; then
-        echo "[!] Impossible de récupérer la version, utilisation de la version stable par défaut..."
-        NC_VERSION="30.0.4"
-    fi
-
-    echo "[*] Téléchargement de Nextcloud v${NC_VERSION}..."
     curl -L --progress-bar \
-        "https://download.nextcloud.com/server/releases/nextcloud-${NC_VERSION}.zip" \
+        "https://download.nextcloud.com/server/releases/latest.zip" \
         -o /tmp/nextcloud.zip
 
     if [ $? -ne 0 ] || [ ! -s /tmp/nextcloud.zip ]; then

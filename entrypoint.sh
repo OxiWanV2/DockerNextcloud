@@ -7,6 +7,9 @@ LOG_NGINX="/home/container/nginx.log"
 LOG_FPM="/home/container/php-fpm.log"
 PHP="php -d memory_limit=512M"
 
+DEBUG=false
+[ -f "$DATA_FILE" ] && grep -q "^DEBUG=true" "$DATA_FILE" && DEBUG=true
+
 STATUS=""
 [ -f "$DATA_FILE" ] && STATUS=$(grep "^STATUS=" "$DATA_FILE" | cut -d'=' -f2)
 
@@ -48,10 +51,18 @@ fi
 
 echo "[*] Application de la configuration..."
 
-$PHP "$NC_DIR/occ" config:system:set trusted_domains 0 --value="${SERVER_IP:-localhost}"
-$PHP "$NC_DIR/occ" config:system:set trusted_domains 1 --value="${SERVER_IP:-localhost}:${SERVER_PORT}"
-$PHP "$NC_DIR/occ" config:system:set trusted_domains 2 --value="localhost"
-$PHP "$NC_DIR/occ" config:system:set trusted_domains 3 --value="localhost:${SERVER_PORT}"
+run_occ() {
+    if $DEBUG; then
+        $PHP "$NC_DIR/occ" "$@"
+    else
+        $PHP "$NC_DIR/occ" "$@" > /dev/null 2>&1
+    fi
+}
+
+run_occ config:system:set trusted_domains 0 --value="${SERVER_IP:-localhost}"
+run_occ config:system:set trusted_domains 1 --value="${SERVER_IP:-localhost}:${SERVER_PORT}"
+run_occ config:system:set trusted_domains 2 --value="localhost"
+run_occ config:system:set trusted_domains 3 --value="localhost:${SERVER_PORT}"
 
 if [ -n "${TRUSTED_DOMAIN}" ]; then
     IFS=',' read -ra EXTRA_DOMAINS <<< "${TRUSTED_DOMAIN}"
@@ -59,29 +70,31 @@ if [ -n "${TRUSTED_DOMAIN}" ]; then
     for DOMAIN in "${EXTRA_DOMAINS[@]}"; do
         DOMAIN=$(echo "$DOMAIN" | tr -d ' ')
         [ -z "$DOMAIN" ] && continue
-        $PHP "$NC_DIR/occ" config:system:set trusted_domains $IDX --value="$DOMAIN"
+        run_occ config:system:set trusted_domains $IDX --value="$DOMAIN"
         IDX=$((IDX + 1))
     done
 fi
 
-$PHP "$NC_DIR/occ" config:system:set default_language          --value="fr"
-$PHP "$NC_DIR/occ" config:system:set default_locale            --value="fr_BE"
-$PHP "$NC_DIR/occ" config:system:set default_phone_region      --value="BE"
-$PHP "$NC_DIR/occ" config:system:set maintenance_window_start  --type=integer --value=1
-$PHP "$NC_DIR/occ" config:system:set overwriteprotocol         --value="http"
-$PHP "$NC_DIR/occ" config:system:set log_type                  --value="file"
-$PHP "$NC_DIR/occ" config:system:set logfile                   --value="/home/container/nextcloud.log"
-$PHP "$NC_DIR/occ" config:system:set overwritecondaddr         --value=""
-$PHP "$NC_DIR/occ" config:system:set cookie_samesite           --value="Lax"
+run_occ config:system:set default_language          --value="fr"
+run_occ config:system:set default_locale            --value="fr_BE"
+run_occ config:system:set default_phone_region      --value="BE"
+run_occ config:system:set maintenance_window_start  --type=integer --value=1
+run_occ config:system:set overwriteprotocol         --value="http"
+run_occ config:system:set log_type                  --value="file"
+run_occ config:system:set logfile                   --value="/home/container/nextcloud.log"
+run_occ config:system:set overwritecondaddr         --value=""
+run_occ config:system:set cookie_samesite           --value="Lax"
 
 if php -r 'exit(extension_loaded("apcu") ? 0 : 1);'; then
-    $PHP "$NC_DIR/occ" config:system:set memcache.local --value="\\OC\\Memcache\\APCu"
+    run_occ config:system:set memcache.local --value="\\OC\\Memcache\\APCu"
 fi
 
 echo "[*] Migration des mimetypes..."
-$PHP "$NC_DIR/occ" maintenance:repair --include-expensive 2>&1 | tail -3
-
-echo "[✓] Configuration appliquée."
+if $DEBUG; then
+    $PHP "$NC_DIR/occ" maintenance:repair --include-expensive 2>&1 | tail -3
+else
+    $PHP "$NC_DIR/occ" maintenance:repair --include-expensive > /dev/null 2>&1
+fi
 
 mkdir -p /tmp/nginx/client_body /tmp/nginx/proxy /tmp/nginx/fastcgi /tmp/nginx/uwsgi /tmp/nginx/scgi
 
@@ -187,12 +200,17 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-nginx -t -e ${LOG_NGINX} -c /tmp/nginx.conf
+if $DEBUG; then
+    nginx -t -e ${LOG_NGINX} -c /tmp/nginx.conf
+else
+    nginx -t -e ${LOG_NGINX} -c /tmp/nginx.conf > /dev/null 2>&1
+fi
+
 if [ $? -ne 0 ]; then
     echo "[!] Configuration nginx invalide."
     cat ${LOG_NGINX}
     exit 1
 fi
 
-echo "[✓] Nextcloud démarré sur le port ${SERVER_PORT}"
+echo " Nextcloud démarré sur le port ${SERVER_PORT}"
 exec nginx -e ${LOG_NGINX} -c /tmp/nginx.conf -g "daemon off;"

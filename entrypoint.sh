@@ -215,11 +215,11 @@ fi
 NC_VERSION=$($PHP "$NC_DIR/occ" status --output=json 2>/dev/null | php -r "echo json_decode(stream_get_contents(STDIN))->versionstring ?? 'Inconnue';")
 
 clear
-echo "╔════════════════════════════════════════╗"
-echo "║            Nextcloud v${NC_VERSION}$(printf '%*s' $((17 - ${#NC_VERSION})) '')║"
-echo "╚════════════════════════════════════════╝"
+echo "╔══════════════════════════════════════╗"
+echo "║         Nextcloud v${NC_VERSION}$(printf '%*s' $((19 - ${#NC_VERSION})) '')║"
+echo "╚══════════════════════════════════════╝"
 echo ""
-echo "  Port    : ${SERVER_PORT}"
+echo "  Nextcloud démarré sur le port : ${SERVER_PORT}"
 echo ""
 
 exec nginx -e ${LOG_NGINX} -c /tmp/nginx.conf -g "daemon off;"

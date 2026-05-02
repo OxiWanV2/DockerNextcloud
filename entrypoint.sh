@@ -45,6 +45,13 @@ if [ "$STATUS" = "downloaded" ]; then
         exit 1
     fi
 
+    echo "[*] Migration des mimetypes..."
+    if $DEBUG; then
+        $PHP "$NC_DIR/occ" maintenance:repair --include-expensive 2>&1 | tail -3
+    else
+        $PHP "$NC_DIR/occ" maintenance:repair --include-expensive > /dev/null 2>&1
+    fi
+
     sed -i 's/STATUS=downloaded/STATUS=configured/' "$DATA_FILE"
     echo "[✓] Nextcloud installé."
 fi
@@ -87,13 +94,6 @@ run_occ config:system:set cookie_samesite           --value="Lax"
 
 if php -r 'exit(extension_loaded("apcu") ? 0 : 1);'; then
     run_occ config:system:set memcache.local --value="\\OC\\Memcache\\APCu"
-fi
-
-echo "[*] Migration des mimetypes..."
-if $DEBUG; then
-    $PHP "$NC_DIR/occ" maintenance:repair --include-expensive 2>&1 | tail -3
-else
-    $PHP "$NC_DIR/occ" maintenance:repair --include-expensive > /dev/null 2>&1
 fi
 
 mkdir -p /tmp/nginx/client_body /tmp/nginx/proxy /tmp/nginx/fastcgi /tmp/nginx/uwsgi /tmp/nginx/scgi
@@ -212,5 +212,14 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo " Nextcloud démarré sur le port ${SERVER_PORT}"
+NC_VERSION=$($PHP "$NC_DIR/occ" status --output=json 2>/dev/null | php -r "echo json_decode(stream_get_contents(STDIN))->versionstring ?? 'Inconnue';")
+
+clear
+echo "╔════════════════════════════════════════╗"
+echo "║            Nextcloud v${NC_VERSION}$(printf '%*s' $((17 - ${#NC_VERSION})) '')║"
+echo "╚════════════════════════════════════════╝"
+echo ""
+echo "  Port    : ${SERVER_PORT}"
+echo ""
+
 exec nginx -e ${LOG_NGINX} -c /tmp/nginx.conf -g "daemon off;"

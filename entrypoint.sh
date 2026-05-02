@@ -216,7 +216,7 @@ NC_VERSION=$($PHP "$NC_DIR/occ" status --output=json 2>/dev/null | php -r "echo 
 
 clear
 echo "╔══════════════════════════════════════╗"
-echo "║         Nextcloud v${NC_VERSION}$(printf '%*s' $((19 - ${#NC_VERSION})) '')║"
+echo "║         Nextcloud v${NC_VERSION}$(printf '%*s' $((18 - ${#NC_VERSION})) '')║"
 echo "╚══════════════════════════════════════╝"
 echo ""
 echo "  Nextcloud démarré sur le port : ${SERVER_PORT}"

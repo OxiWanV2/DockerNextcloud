@@ -195,5 +195,4 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "[✓] Nextcloud démarré sur le port ${SERVER_PORT}"
-echo "[✓] Logs : ${LOG_NGINX} | ${LOG_FPM} | /home/container/nextcloud.log"
 exec nginx -e ${LOG_NGINX} -c /tmp/nginx.conf -g "daemon off;"
